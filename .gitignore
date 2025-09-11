@@ -24,3 +24,12 @@ server
 *.spec
 test*
 wordcloud.html
+
+# 打包相关文件和目录
+build_output/
+dist_local/
+dist_nuitka/
+dist_cx_freeze/
+测试报告.json
+/build_scripts/*.spec
+/build_scripts/setup_*.py

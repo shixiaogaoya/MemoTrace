@@ -38,7 +38,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           if (Test-Path requirements.txt) {
+            # 处理Windows特定依赖
+            echo "安装项目依赖..."
             pip install -r requirements.txt
+            # 确保关键依赖已安装
+            pip install pywin32 psutil pillow openpyxl lxml
           }
 
       - name: Cache PyInstaller dist
@@ -49,10 +53,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pyinstaller-dist-
 
-      - name: Build EXE
+      - name: Build EXE with Enhanced Configuration
         run: |
           echo "开始打包 ${{ env.MAIN_SCRIPT }}"
-          pyinstaller --noconsole --onefile ${{ env.MAIN_SCRIPT }}
+          pyinstaller --noconsole --onefile `
+            --add-data "exporter/resources;exporter/resources" `
+            --add-data "exporter/ffmpeg.exe;exporter/" `
+            --add-data "wxManager/decrypt/version_list.json;wxManager/decrypt/" `
+            --hidden-import "multiprocessing" `
+            --hidden-import "win32api" `
+            --hidden-import "win32con" `
+            --hidden-import "win32gui" `
+            --hidden-import "win32process" `
+            --hidden-import "win32file" `
+            --hidden-import "pywintypes" `
+            --hidden-import "psutil" `
+            --hidden-import "lxml" `
+            --hidden-import "bs4" `
+            --hidden-import "openpyxl" `
+            --hidden-import "cryptography" `
+            --hidden-import "requests" `
+            --hidden-import "PIL._tkinter_finder" `
+            --name "MemoTrace" `
+            ${{ env.MAIN_SCRIPT }}
 
       - name: Show output files
         run: dir dist
@@ -61,4 +84,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: memotrace-exe
-          path: dist/3-exporter.exe
+          path: dist/MemoTrace.exe
