@@ -1,0 +1,73 @@
+name: Build MemoTrace
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Override version (e.g. 3.0.1)'
+        required: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install base deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller nuitka cx-Freeze pillow
+
+      - name: Show version
+        run: python -c "import memotrace_version as v;print(v.__version__)"
+
+      - name: Build PyInstaller
+        run: python build_scripts/pack_memotrace.py --mode 1 --yes --no-input
+
+      - name: Build Nuitka
+        run: python build_scripts/pack_memotrace.py --mode 2 --yes --no-input
+
+      - name: Build cx_Freeze
+        run: python build_scripts/pack_memotrace.py --mode 3 --yes --no-input
+
+      - name: Generate CHANGELOG section
+        run: |
+          python build_scripts/generate_changelog.py
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "最新版本 CHANGELOG (前20行)：" >> $GITHUB_STEP_SUMMARY
+          powershell -Command "Get-Content CHANGELOG.md -TotalCount 20" >> $GITHUB_STEP_SUMMARY
+
+      - name: Validate
+        run: python build_scripts/validate_build.py
+
+      - name: Package artifacts
+        run: python build_scripts/package_release.py
+
+      - name: Upload artifacts (raw)
+        uses: actions/upload-artifact@v4
+        with:
+            name: memotrace-artifacts
+            path: |
+              dist_local/**
+              dist_nuitka/**
+              dist_cx_freeze/**
+              release/**
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          body_path: CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

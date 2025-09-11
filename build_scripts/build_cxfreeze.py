@@ -15,6 +15,8 @@ import sys
 import subprocess
 import shutil
 from pathlib import Path
+from memotrace_version import __version__, __app_name__
+from build_scripts.common_build_util import ensure_icon, create_version_file
 
 
 class MemoTraceCxFreezePacker:
@@ -85,7 +87,9 @@ class MemoTraceCxFreezePacker:
         """创建cx_Freeze setup文件"""
         print("\n【步骤4】创建cx_Freeze配置文件...")
         
-        setup_content = f'''#!/usr/bin/env python
+    icon_path = ensure_icon(self.root_dir)
+    version_file = create_version_file(self.root_dir)
+    setup_content = f'''#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import sys
@@ -164,13 +168,13 @@ executables = [
         r"{self.main_script}",
         base="Win32GUI" if sys.platform == "win32" else None,  # 隐藏控制台窗口
         target_name="MemoTrace.exe",
-        icon=None,  # 可以添加图标文件路径
+        icon=r"{icon_path}",
     )
 ]
 
 setup(
-    name="MemoTrace",
-    version="1.0",
+    name="{__app_name__}",
+    version="{__version__}",
     description="微信聊天记录解析和导出工具",
     options={{"build_exe": build_exe_options}},
     executables=executables

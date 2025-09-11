@@ -13,6 +13,7 @@ import os
 import sys
 import subprocess
 import time
+import argparse
 from pathlib import Path
 
 
@@ -111,63 +112,88 @@ class MemoTraceMainPacker:
             critical_deps = ['pywin32', 'psutil', 'pillow', 'openpyxl']
             missing_deps = []
             
-            for dep in critical_deps:
-                try:
-                    __import__(dep.replace('-', '_').lower())
-                    print(f"✅ {dep}: 已安装")
-                except ImportError:
-                    print(f"❌ {dep}: 未安装")
-                    missing_deps.append(dep)
-                    
-            if missing_deps:
-                print(f"\\n发现缺失依赖: {', '.join(missing_deps)}")
-                print("建议先安装项目依赖：pip install -r requirements.txt")
-                
-                choice = input("\\n是否继续打包？(y/n): ").strip().lower()
-                if choice != 'y':
-                    return False
-                    
-            print("✅ 依赖检查完成")
-            return True
-            
-        except Exception as e:
-            print(f"⚠️  依赖检查过程中出现问题: {e}")
-            print("建议手动安装依赖后重试")
-            return True  # 不阻止继续进行
-            
-    def run_packer(self, packer_type):
-        """运行指定的打包器"""
-        script_map = {
-            '1': 'build_exe.py',
-            '2': 'build_nuitka.py', 
-            '3': 'build_cxfreeze.py'
-        }
-        
-        if packer_type not in script_map:
-            print("❌ 无效的打包方式")
-            return False
-            
-        script_name = script_map[packer_type]
-        script_path = self.script_dir / script_name
-        
-        if not script_path.exists():
-            print(f"❌ 打包脚本未找到: {script_path}")
-            return False
-            
-        print(f"\\n🚀 开始执行 {script_name}...")
-        print("=" * 50)
-        
-        try:
-            # 运行打包脚本
-            result = subprocess.run([sys.executable, str(script_path)], 
-                                  cwd=str(self.root_dir),
-                                  capture_output=False)
-            
-            if result.returncode == 0:
-                print("\\n✅ 打包完成！")
-                return True
-            else:
-                print(f"\\n❌ 打包失败，退出码: {result.returncode}")
+            def main(self, args=None):
+                """主函数 / 支持非交互模式"""
+                parser = argparse.ArgumentParser(description="MemoTrace 打包工具")
+                parser.add_argument("--mode", "-m", choices=["1", "2", "3", "4"], help="指定打包方式: 1=PyInstaller 2=Nuitka 3=cx_Freeze 4=全部")
+                parser.add_argument("--yes", "-y", action="store_true", help="自动确认依赖检查提示，适合CI/自动化")
+                parser.add_argument("--no-input", action="store_true", help="完全非交互模式(出错直接退出)")
+                parsed = parser.parse_args(args=args)
+
+                self.show_welcome()
+
+                # 系统检查
+                if not self.check_system_requirements():
+                    print("❌ 系统检查失败，请解决上述问题后重试")
+                    if not parsed.no_input:
+                        input("按回车键退出...")
+                    return
+
+                # 覆盖 handle_dependency_issues 在非交互模式下的行为
+                if parsed.mode and parsed.yes:
+                    # 快速依赖扫描但不询问
+                    try:
+                        self.handle_dependency_issues()
+                    except Exception:
+                        pass
+                else:
+                    if not self.handle_dependency_issues():
+                        print("❌ 用户选择退出")
+                        return
+
+                # 非交互模式
+                if parsed.mode:
+                    if parsed.mode in ["1", "2", "3"]:
+                        ok = self.run_packer(parsed.mode)
+                    else:
+                        ok = self.run_all_packers()
+                    if not ok:
+                        print("❌ 打包失败")
+                        sys.exit(1)
+                    else:
+                        print("🎉 打包完成！")
+                        return
+
+                # 交互模式
+                while True:
+                    self.show_packing_options()
+                    try:
+                        choice = input("请选择打包方式 (0-4): ").strip()
+                        if choice == '0':
+                            print("👋 感谢使用 MemoTrace 打包工具！")
+                            break
+                        elif choice in ['1', '2', '3']:
+                            success = self.run_packer(choice)
+                            if success:
+                                print("\n🎉 打包完成！请查看输出目录中的文件。")
+                            else:
+                                print("\n💡 提示：可以尝试其他打包方式，或查看问题排查指南。")
+                                self.show_troubleshooting()
+                        elif choice == '4':
+                            success = self.run_all_packers()
+                            if success:
+                                print("\n🎉 批量打包完成！请查看各个输出目录。")
+                            else:
+                                print("\n� 所有打包方式都失败了，请查看问题排查指南。")
+                                self.show_troubleshooting()
+                        else:
+                            print("❌ 无效选择，请输入 0-4 之间的数字")
+                    except KeyboardInterrupt:
+                        print("\n\n👋 用户中断，感谢使用！")
+                        break
+                    except Exception as e:
+                        print(f"\n❌ 发生错误: {e}")
+                        continue
+
+                    if choice != '0':
+                        print("\n" + "=" * 50)
+                        continue_choice = input("是否继续使用打包工具？(y/n): ").strip().lower()
+                        if continue_choice != 'y':
+                            print("👋 感谢使用 MemoTrace 打包工具！")
+                            break
+
+                if not parsed.no_input:
+                    input("\n按回车键退出...")
                 return False
                 
         except Exception as e:

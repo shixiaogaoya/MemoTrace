@@ -15,6 +15,8 @@ import sys
 import subprocess
 import shutil
 from pathlib import Path
+from memotrace_version import __version__, __app_name__
+from build_scripts.common_build_util import ensure_icon, create_version_file
 
 
 class MemoTraceNuitkaPacker:
@@ -90,12 +92,19 @@ class MemoTraceNuitkaPacker:
         os.chdir(self.root_dir)
         
         try:
+            icon_path = ensure_icon(self.root_dir)
+            version_file = create_version_file(self.root_dir)
             # 构建Nuitka命令
             cmd = [
                 sys.executable, "-m", "nuitka",
                 "--standalone",  # 独立模式
                 "--onefile",     # 单文件模式
                 "--windows-disable-console",  # 禁用控制台窗口
+                f"--windows-icon-from-ico={icon_path}",
+                f"--product-version={__version__}",
+                f"--file-version={__version__}",
+                f"--product-name={__app_name__}",
+                f"--copyright={__app_name__} {__version__}",
                 "--output-dir=" + str(self.dist_dir),
                 "--output-filename=MemoTrace.exe",
                 "--include-data-dir=" + str(self.root_dir / "exporter" / "resources") + "=exporter/resources",

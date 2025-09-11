@@ -15,6 +15,8 @@ import subprocess
 import shutil
 import tempfile
 from pathlib import Path
+from memotrace_version import __version__, __app_name__
+from build_scripts.common_build_util import ensure_icon, create_version_file
 
 
 class MemoTracePacker:
@@ -85,7 +87,10 @@ class MemoTracePacker:
         """创建PyInstaller spec文件"""
         print("\n【步骤4】创建PyInstaller配置文件...")
         
-        spec_content = f'''# -*- mode: python ; coding: utf-8 -*-
+    icon_path = ensure_icon(self.root_dir)
+    version_file = create_version_file(self.root_dir)
+
+    spec_content = f'''# -*- mode: python ; coding: utf-8 -*-
 
 import sys
 from pathlib import Path
@@ -161,7 +166,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='MemoTrace',
+    name='{__app_name__}',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -173,8 +178,8 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # 可以添加图标文件路径
-    version_file=None,
+    icon=r"{icon_path}",
+    version_file=r"{version_file}",
 )
 '''
         
