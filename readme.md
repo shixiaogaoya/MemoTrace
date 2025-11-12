@@ -1,6 +1,6 @@
 ## 现已支持微信4.0，[点击查看详细设计文档](https://blog.lc044.love/post/13)
 
-<h1 align="center">我的数据我做主</h1>
+<h1 align="center">我的数据我做主.</h1>
 <div align="center">
     <a href="https://github.com/LC044/WeChatMsg/stargazers">
         <img src="https://img.shields.io/github/stars/LC044/WeChatMsg.svg" />
