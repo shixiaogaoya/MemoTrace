@@ -97,6 +97,18 @@ class MemoTraceMainPacker:
         print("0. 退出程序")
         print()
 
+    def ensure_no_conflicts(self):
+        """在运行前检查脚本中是否仍存在合并冲突标记"""
+
+        conflict_markers = ("<<<<<<<", "=======", ">>>>>>>")
+        with open(__file__, "r", encoding="utf-8") as handle:
+            content = handle.read()
+
+        if any(marker in content for marker in conflict_markers):
+            print("❌ 检测到 pack_memotrace.py 中存在未解决的合并冲突标记。")
+            print("   请先解决冲突后重新运行脚本，或重新获取最新版本的项目文件。")
+            sys.exit(1)
+
     def handle_dependency_issues(self, auto_confirm=False, non_interactive=False):
         """处理依赖问题，返回是否继续"""
         print("【依赖问题处理】")
@@ -235,6 +247,8 @@ class MemoTraceMainPacker:
         parsed = parser.parse_args(args=args)
 
         self.show_welcome()
+
+        self.ensure_no_conflicts()
 
         if not self.check_system_requirements():
             print("❌ 系统检查失败，请解决上述问题后重试")
