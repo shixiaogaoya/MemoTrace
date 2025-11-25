@@ -13,84 +13,77 @@ import os
 import sys
 import subprocess
 import shutil
-import tempfile
 from pathlib import Path
+from textwrap import dedent
+
 from memotrace_version import __version__, __app_name__
 from build_scripts.common_build_util import ensure_icon, create_version_file
 
 
 class MemoTracePacker:
     """MemoTrace打包器"""
-    
+
     def __init__(self):
         self.root_dir = Path(__file__).parent.parent
         self.build_dir = self.root_dir / "build_output"
         self.dist_dir = self.root_dir / "dist_local"
         self.main_script = self.root_dir / "example" / "3-exporter.py"
-        
+
     def check_environment(self):
         """检查打包环境"""
         print("【步骤1】检查环境配置...")
-        
-        # 检查Python版本
+
         python_version = sys.version_info
         print(f"Python版本: {python_version.major}.{python_version.minor}.{python_version.micro}")
-        
+
         if python_version.major < 3 or (python_version.major == 3 and python_version.minor < 8):
             raise Exception("需要Python 3.8及以上版本")
-            
-        # 检查是否在Windows环境
-        if os.name != 'nt':
+
+        if os.name != "nt":
             print("⚠️ 警告: 当前不在Windows环境，某些Windows特定功能可能无法正常工作")
-            
-        # 检查主脚本
+
         if not self.main_script.exists():
             raise Exception(f"主脚本不存在: {self.main_script}")
-            
+
         print("✅ 环境检查完成")
-        
+
     def install_dependencies(self):
         """安装依赖"""
         print("\n【步骤2】安装依赖库...")
-        
-        # 升级pip
+
         subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "pip"], check=True)
-        
-        # 安装PyInstaller
         subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller>=5.0"], check=True)
-        
-        # 安装项目依赖
+
         requirements_file = self.root_dir / "requirements.txt"
         if requirements_file.exists():
             print("安装项目依赖...")
             subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(requirements_file)], check=True)
-        
+
         print("✅ 依赖安装完成")
-        
+
     def prepare_build_dirs(self):
         """准备构建目录"""
         print("\n【步骤3】准备构建目录...")
-        
-        # 清理旧的构建目录
+
         if self.build_dir.exists():
             shutil.rmtree(self.build_dir)
         if self.dist_dir.exists():
             shutil.rmtree(self.dist_dir)
-            
-        # 创建新目录
+
         self.build_dir.mkdir(parents=True, exist_ok=True)
         self.dist_dir.mkdir(parents=True, exist_ok=True)
-        
+
         print("✅ 构建目录准备完成")
-        
+
     def create_spec_file(self):
         """创建PyInstaller spec文件"""
         print("\n【步骤4】创建PyInstaller配置文件...")
-        
-    icon_path = ensure_icon(self.root_dir)
-    version_file = create_version_file(self.root_dir)
 
-    spec_content = f'''# -*- mode: python ; coding: utf-8 -*-
+        icon_path = ensure_icon(self.root_dir)
+        version_file = create_version_file(self.root_dir)
+
+        spec_content = dedent(
+            f"""# -*- mode: python ; coding: utf-8 -*-
 
 import sys
 from pathlib import Path
@@ -181,52 +174,53 @@ exe = EXE(
     icon=r"{icon_path}",
     version_file=r"{version_file}",
 )
-'''
-        
+"""
+        )
+
         spec_file = self.build_dir / "MemoTrace.spec"
-        with open(spec_file, "w", encoding="utf-8") as f:
-            f.write(spec_content)
-            
+        with open(spec_file, "w", encoding="utf-8") as file:
+            file.write(spec_content)
+
         self.spec_file = spec_file
         print(f"✅ Spec文件已创建: {spec_file}")
-        
+
     def build_executable(self):
         """构建可执行文件"""
         print("\n【步骤5】开始打包...")
-        
-        # 切换到项目根目录
+
         original_cwd = os.getcwd()
         os.chdir(self.root_dir)
-        
+
         try:
-            # 运行PyInstaller
             cmd = [
-                "pyinstaller", 
-                "--clean",  # 清理临时文件
-                "--distpath", str(self.dist_dir),
-                "--workpath", str(self.build_dir / "work"),
-                str(self.spec_file)
+                "pyinstaller",
+                "--clean",
+                "--distpath",
+                str(self.dist_dir),
+                "--workpath",
+                str(self.build_dir / "work"),
+                str(self.spec_file),
             ]
-            
+
             print(f"执行命令: {' '.join(cmd)}")
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
-            
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+
             if result.returncode != 0:
-                print(f"❌ 打包失败:")
+                print("❌ 打包失败:")
                 print("STDOUT:", result.stdout)
                 print("STDERR:", result.stderr)
                 raise Exception("PyInstaller打包失败")
-                
+
             print("✅ 打包完成")
-            
         finally:
             os.chdir(original_cwd)
-            
+
     def create_launcher_script(self):
         """创建启动脚本"""
         print("\n【步骤6】创建启动脚本...")
-        
-        launcher_content = '''@echo off
+
+        launcher_content = dedent(
+            """@echo off
 chcp 65001 > nul
 title MemoTrace - 微信聊天记录解析工具
 
@@ -258,19 +252,21 @@ if %ERRORLEVEL% neq 0 (
     echo.
     pause
 )
-'''
-        
+"""
+        )
+
         launcher_file = self.dist_dir / "启动MemoTrace.bat"
-        with open(launcher_file, "w", encoding="gbk") as f:  # 使用GBK编码兼容Windows
-            f.write(launcher_content)
-            
+        with open(launcher_file, "w", encoding="gbk") as file:  # 使用GBK编码兼容Windows
+            file.write(launcher_content)
+
         print(f"✅ 启动脚本已创建: {launcher_file}")
-        
+
     def create_readme(self):
         """创建使用说明"""
         print("\n【步骤7】创建使用说明...")
-        
-        readme_content = '''# MemoTrace 使用说明
+
+        readme_content = dedent(
+            """# MemoTrace 使用说明
 
 ## 简介
 MemoTrace 是一个微信聊天记录解析和导出工具，支持将微信聊天数据导出为多种格式。
@@ -333,61 +329,62 @@ MemoTrace 是一个微信聊天记录解析和导出工具，支持将微信聊�
 - 本工具仅供学习研究使用
 - 请遵守相关法律法规
 - 不得用于非法用途
-'''
-        
+"""
+        )
+
         readme_file = self.dist_dir / "使用说明.md"
-        with open(readme_file, "w", encoding="utf-8") as f:
-            f.write(readme_content)
-            
+        with open(readme_file, "w", encoding="utf-8") as file:
+            file.write(readme_content)
+
         print(f"✅ 使用说明已创建: {readme_file}")
-        
+
     def package_complete(self):
         """打包完成后的处理"""
         print("\n【步骤8】完成打包...")
-        
+
         exe_file = self.dist_dir / "MemoTrace.exe"
         if exe_file.exists():
-            file_size = exe_file.stat().st_size / (1024 * 1024)  # MB
-            print(f"✅ 打包成功！")
+            file_size = exe_file.stat().st_size / (1024 * 1024)
+            print("✅ 打包成功！")
             print(f"📦 可执行文件: {exe_file}")
             print(f"📏 文件大小: {file_size:.1f} MB")
             print(f"📁 输出目录: {self.dist_dir}")
         else:
             raise Exception("打包失败：未找到生成的exe文件")
-            
+
     def run_build(self):
         """执行完整的打包流程"""
         try:
             print("🚀 开始MemoTrace打包流程...")
             print("=" * 50)
-            
+
             self.check_environment()
-            self.install_dependencies()  
+            self.install_dependencies()
             self.prepare_build_dirs()
             self.create_spec_file()
             self.build_executable()
             self.create_launcher_script()
             self.create_readme()
             self.package_complete()
-            
+
             print("\n" + "=" * 50)
             print("🎉 MemoTrace打包完成！")
             print(f"📁 输出目录: {self.dist_dir}")
             print("📖 使用方法: 查看 '使用说明.md' 文件")
             print("🚀 快速启动: 双击 '启动MemoTrace.bat'")
-            
-        except Exception as e:
-            print(f"\n❌ 打包过程中出现错误: {str(e)}")
+
+        except Exception as exc:
+            print(f"\n❌ 打包过程中出现错误: {exc}")
             print("请检查错误信息并重试")
             return False
-            
+
         return True
 
 
 if __name__ == "__main__":
     packer = MemoTracePacker()
     success = packer.run_build()
-    
+
     if not success:
         input("\n按回车键退出...")
         sys.exit(1)
